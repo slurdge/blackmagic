@@ -40,12 +40,15 @@ void dfu_detach(void)
 	gpio_clear(GPIOA, GPIO12);
 	gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_2_MHZ,
 		GPIO_CNF_OUTPUT_OPENDRAIN, GPIO12);
-	/* Pull PB0 (T_NRST) low
+	/* Assert bootloader pin */
+	uint32_t crl = GPIOA_CRL;
+	/* Enable Pull on GPIOA1. We don't rely on the external pin
+	 * really pulled, but only on the value of the CNF register
+	 * changed from the reset value
 	 */
-	rcc_periph_clock_enable(RCC_GPIOB);
-	gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_2_MHZ,
-		GPIO_CNF_OUTPUT_OPENDRAIN, GPIO0);
-	gpio_clear(GPIOB, GPIO0);
+	crl &= 0xffffff0f;
+	crl |= 0x80;
+	GPIOA_CRL = crl;
 	SCB_VTOR = 0;
 	scb_reset_core();
 }
