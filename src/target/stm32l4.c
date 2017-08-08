@@ -98,6 +98,7 @@ static const char stm32l4_driver_str[] = "STM32L4xx";
 #define FLASH_SR_OPTVERR	(1 << 15)
 #define FLASH_SR_ERROR_MASK	0xC3FA
 #define FLASH_SR_BSY		(1 << 16)
+#define FLASH_SR_PEMPTY		(1 << 17)
 
 #define KEY1 0x45670123
 #define KEY2 0xCDEF89AB
@@ -251,10 +252,7 @@ static int stm32l4_flash_write(struct target_flash *f,
 
 static bool stm32l4_cmd_erase(target *t, uint32_t action)
 {
-	const char spinner[] = "|/-\\";
-	int spinindex = 0;
-
-	tc_printf(t, "Erasing flash... This may take a few seconds.  ");
+	tc_printf(t, "Erasing flash... ");
 	stm32l4_flash_unlock(t);
 
 	/* Flash erase action start instruction */
@@ -263,18 +261,18 @@ static bool stm32l4_cmd_erase(target *t, uint32_t action)
 
 	/* Read FLASH_SR to poll for BSY bit */
 	while (target_mem_read32(t, FLASH_SR) & FLASH_SR_BSY) {
-		tc_printf(t, "\b%c", spinner[spinindex++ % 4]);
 		if(target_check_error(t)) {
-			tc_printf(t, "\n");
+			tc_printf(t, "Command failed!\n");
 			return false;
 		}
 	}
-	tc_printf(t, "\n");
-
 	/* Check for error */
 	uint16_t sr = target_mem_read32(t, FLASH_SR);
-	if (sr & FLASH_SR_ERROR_MASK)
+	if (sr & FLASH_SR_ERROR_MASK) {
+		tc_printf(t, "Erase failed! SR = 0x%08x", sr);
 		return false;
+	} else
+		tc_printf(t, "Done!\n");
 	return true;
 }
 
