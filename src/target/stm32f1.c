@@ -108,8 +108,13 @@ static void stm32f1_add_flash(target *t,
 	f->length = length;
 	f->blocksize = erasesize;
 	f->erase = stm32f1_flash_erase;
-	f->write = stm32f1_flash_write;
-	f->align = 2;
+	/* STM32F1 (PM0075), STM32F0 (RM0091) and STM32F3 (RM0316)
+	 * do not allow to write other data than all bits 0 to an
+	 * already programmed word. Use buffered mode to handle this fact.*/
+	f->write = target_flash_write_buffered;
+	f->done = target_flash_done_buffered;
+	f->write_buf = stm32f1_flash_write;
+	f->buf_size = 0x400;
 	f->erased = 0xff;
 	target_add_flash(t, f);
 }
