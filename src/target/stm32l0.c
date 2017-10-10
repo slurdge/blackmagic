@@ -241,6 +241,7 @@ static void stm32l_add_flash(target *t,
 	f->done = target_flash_done_buffered;
 	f->write_buf = stm32lx_nvm_prog_write;
 	f->buf_size = erasesize/2;
+	f->align = 4;
 	target_add_flash(t, f);
 }
 

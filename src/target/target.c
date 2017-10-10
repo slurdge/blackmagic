@@ -212,8 +212,10 @@ int target_flash_write(target *t,
                        target_addr dest, const void *src, size_t len)
 {
 	int ret = 0;
+	struct target_flash *f = flash_for_addr(t, dest);
+	if (f->write == target_flash_write_buffered)
+		return f->write(f, dest, src, len);
 	while (len) {
-		struct target_flash *f = flash_for_addr(t, dest);
 		size_t tmptarget = MIN(dest + len, f->start + f->length);
 		size_t tmplen = tmptarget - dest;
 		if (f->align > 1) {

@@ -48,7 +48,7 @@ struct target_flash {
 	uint8_t erased;
 
 	/* For buffered flash */
-	size_t buf_size;
+	size_t buf_size; /* must be integer multiple of align!*/
 	flash_write_func write_buf;
 	target_addr buf_addr;
 	void *buf;

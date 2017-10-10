@@ -115,6 +115,7 @@ static void stm32f1_add_flash(target *t,
 	f->done = target_flash_done_buffered;
 	f->write_buf = stm32f1_flash_write;
 	f->buf_size = 0x400;
+	f->align = 2;
 	f->erased = 0xff;
 	target_add_flash(t, f);
 }
