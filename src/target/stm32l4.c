@@ -96,7 +96,7 @@ static const char stm32l4_driver_str[] = "STM32L4xx";
 #define FLASH_SR_FASTERR	(1 << 9)
 #define FLASH_SR_RDERR		(1 << 14)
 #define FLASH_SR_OPTVERR	(1 << 15)
-#define FLASH_SR_ERROR_MASK	0xC3FA
+#define FLASH_SR_ERROR_MASK	0x43FA
 #define FLASH_SR_BSY		(1 << 16)
 
 #define KEY1 0x45670123

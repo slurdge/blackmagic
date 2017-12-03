@@ -23,7 +23,7 @@
 /* No STM32L4 definitions in libopencm3 yet */
 #define FLASH_SR ((volatile uint32_t *) 0x40022010)
 #define FLASH_SR_EOP		(1 << 0)
-#define SR_ERROR_MASK		0xC3FA
+#define SR_ERROR_MASK		0x43FA
 #define FLASH_SR_BSY		(1 << 16)
 
 #define FLASH_CR ((volatile uint32_t *) 0x40022014)
