@@ -48,7 +48,7 @@ const struct command_s stm32f4_cmd_list[] = {
 	{NULL, NULL, NULL}
 };
 
-
+static bool stm32f4_attach(target *t);
 static int stm32f4_flash_erase(struct target_flash *f, target_addr addr,
 							   size_t len);
 static int stm32f4_flash_write(struct target_flash *f,
@@ -133,7 +133,7 @@ struct stm32f4_flash {
 	uint8_t bank_split;
 };
 
-enum ID_STM32F47 {
+enum IDS_STM32F247 {
 	ID_STM32F20X  = 0x411,
 	ID_STM32F40X  = 0x413,
 	ID_STM32F42X  = 0x419,
@@ -161,7 +161,6 @@ static void stm32f4_add_flash(target *t,
 	f->blocksize = blocksize;
 	f->erase = stm32f4_flash_erase;
 	f->write = stm32f4_flash_write;
-	f->align = 4;
 	f->erased = 0xff;
 	sf->base_sector = base_sector;
 	sf->psize = 32;
@@ -169,18 +168,43 @@ static void stm32f4_add_flash(target *t,
 	target_add_flash(t, f);
 }
 
+char *stm32f4_get_chip_name(uint32_t idcode)
+{
+	switch(idcode){
+	case ID_STM32F40X:
+		return "STM32F40x";
+	case ID_STM32F42X: /* 427/437 */
+		return "STM32F42x";
+	case ID_STM32F46X: /* 469/479 */
+		return "STM32F47x";
+	case ID_STM32F20X: /* F205 */
+		return "STM32F2";
+	case ID_STM32F446: /* F446 */
+		return "STM32F446";
+	case ID_STM32F401C: /* F401 B/C RM0368 Rev.3 */
+		return "STM32F401C";
+	case ID_STM32F411: /* F411     RM0383 Rev.4 */
+		return "STM32F411";
+	case ID_STM32F412: /* F412     RM0402 Rev.4, 256 kB Ram */
+		return "STM32F412";
+	case ID_STM32F401E: /* F401 D/E RM0368 Rev.3 */
+		return "STM32F401E";
+	case ID_STM32F413: /* F413     RM0430 Rev.2, 320 kB Ram, 1.5 MB flash. */
+		return "STM32F413";
+	case ID_STM32F74X: /* F74x RM0385 Rev.4 */
+		return "STM32F74x";
+	case ID_STM32F76X: /* F76x F77x RM0410 */
+		return "STM32F76x";
+	case ID_STM32F72X: /* F72x F73x RM0431 */
+		return "STM32F72x";
+	default:
+		return NULL;
+	}
+}
+
 bool stm32f4_probe(target *t)
 {
-	uint32_t idcode;
-	const char* designator = NULL;
-	bool dual_bank = false;
-	bool has_ccmram = false;
-	bool is_f7  = false;
-	bool large_sectors = false;
-	uint32_t flashsize_base = F4_FLASHSIZE;
-
-	idcode = target_mem_read32(t, DBGMCU_IDCODE);
-	idcode &= 0xFFF;
+	uint32_t idcode = target_mem_read32(t, DBGMCU_IDCODE) & 0xFFF;
 
 	if (idcode == ID_STM32F20X) {
 		/* F405 revision A have a wrong IDCODE, use ARM_CPUID to make the
@@ -192,54 +216,76 @@ bool stm32f4_probe(target *t)
 	}
 	switch(idcode) {
 	case ID_STM32F40X:
-		designator = "STM32F40x";
+	case ID_STM32F42X: /* 427/437 */
+	case ID_STM32F46X: /* 469/479 */
+	case ID_STM32F20X: /* F205 */
+	case ID_STM32F446: /* F446 */
+	case ID_STM32F401C: /* F401 B/C RM0368 Rev.3 */
+	case ID_STM32F411: /* F411     RM0383 Rev.4 */
+	case ID_STM32F412: /* F412     RM0402 Rev.4, 256 kB Ram */
+	case ID_STM32F401E: /* F401 D/E RM0368 Rev.3 */
+	case ID_STM32F413: /* F413     RM0430 Rev.2, 320 kB Ram, 1.5 MB flash. */
+	case ID_STM32F74X: /* F74x RM0385 Rev.4 */
+	case ID_STM32F76X: /* F76x F77x RM0410 */
+	case ID_STM32F72X: /* F72x F73x RM0431 */
+		t->idcode = idcode;
+		t->driver = stm32f4_get_chip_name(idcode);
+		t->attach = stm32f4_attach;
+		target_add_commands(t, stm32f4_cmd_list, t->driver);
+		return true;
+	default:
+		return false;
+	}
+}
+
+static bool stm32f4_attach(target *t)
+{
+	bool dual_bank = false;
+	bool has_ccmram = false;
+	bool is_f7  = false;
+	bool large_sectors = false;
+	uint32_t flashsize_base = F4_FLASHSIZE;
+
+	if (!cortexm_attach(t))
+		return false;
+
+	switch(t->idcode) {
+	case ID_STM32F40X:
 		has_ccmram = true;
 		break;
 	case ID_STM32F42X: /* 427/437 */
-		designator = "STM32F42x";
 		has_ccmram = true;
 		dual_bank  = true;
 		break;
 	case ID_STM32F46X: /* 469/479 */
-		designator = "STM32F47x";
 		has_ccmram = true;
 		dual_bank  = true;
 		break;
 	case ID_STM32F20X: /* F205 */
-		designator = "STM32F2";
 		break;
 	case ID_STM32F446: /* F446 */
-		designator = "STM32F446";
 		break;
 	case ID_STM32F401C: /* F401 B/C RM0368 Rev.3 */
-		designator = "STM32F401C";
 		break;
 	case ID_STM32F411: /* F411     RM0383 Rev.4 */
-		designator = "STM32F411";
 		break;
 	case ID_STM32F412: /* F412     RM0402 Rev.4, 256 kB Ram */
-		designator = "STM32F412";
 		break;
 	case ID_STM32F401E: /* F401 D/E RM0368 Rev.3 */
-		designator = "STM32F401E";
 		break;
 	case ID_STM32F413: /* F413     RM0430 Rev.2, 320 kB Ram, 1.5 MB flash. */
-		designator = "STM32F413";
 		break;
 	case ID_STM32F74X: /* F74x RM0385 Rev.4 */
-		designator = "STM32F74x";
 		is_f7 = true;
 		large_sectors = true;
 		flashsize_base = F7_FLASHSIZE;
 		break;
 	case ID_STM32F76X: /* F76x F77x RM0410 */
-		designator = "STM32F76x";
 		is_f7 = true;
 		dual_bank = true;
 		flashsize_base = F7_FLASHSIZE;
 		break;
 	case ID_STM32F72X: /* F72x F73x RM0431 */
-		designator = "STM32F72x";
 		is_f7 = true;
 		flashsize_base = F72X_FLASHSIZE;
 		break;
@@ -247,14 +293,13 @@ bool stm32f4_probe(target *t)
 		return false;
 	}
 	target_mem_write32(t, DBGMCU_CR, DBG_STANDBY| DBG_STOP | DBG_SLEEP);
-	t->driver = designator;
-	target_add_commands(t, stm32f4_cmd_list, designator);
-	t->idcode = idcode;
 	bool use_dual_bank = false;
+	target_mem_map_free(t);
 	uint32_t flashsize = target_mem_read32(t, flashsize_base) & 0xffff;
 	if (is_f7) {
 		target_add_ram(t, 0x00000000, 0x4000);  /* 16 k ITCM Ram */
-		target_add_ram(t, 0x20000000, 0x10000); /* 64 k DTCM Ram */
+		target_add_ram(t, 0x20000000, 0x20000); /* 128 k DTCM Ram */
+		target_add_ram(t, 0x20020000, 0x60000); /* 384 k Ram */
 		if (dual_bank) {
 			uint32_t optcr;
 			optcr = target_mem_read32(t, FLASH_OPTCR);
@@ -263,7 +308,7 @@ bool stm32f4_probe(target *t)
 	} else {
 		if (has_ccmram)
 			target_add_ram(t, 0x10000000, 0x10000); /* 64 k CCM Ram*/
-		target_add_ram(t, 0x20000000, 0x10000);     /* 64 k RAM */
+		target_add_ram(t, 0x20000000, 0x50000);     /* 320 k RAM */
 		if (dual_bank) {
 			use_dual_bank = true;
 			if (flashsize < 0x800) {
